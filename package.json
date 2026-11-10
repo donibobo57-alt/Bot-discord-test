@@ -1,7 +1,7 @@
 {
   "name": "Bot-discord-test",
   "version": "1.0.0",
-  "description": "Bot discord leveling et vocal",
+  "description": "Bot discord economie et banque",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
