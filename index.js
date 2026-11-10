@@ -3,14 +3,14 @@ const http = require('http');
 const fs = require('fs');
 const { createCanvas, loadImage } = require('canvas');
 
-// --- 1. MINI SERVEUR WEB (Health Check pour Render - anti-timeout 24/7) ---
+// --- 1. MINI SERVEUR WEB (Health Check Render - Anti-timeout 24/7) ---
 const PORT = process.env.PORT || 3000;
 const server = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Bot Discord Économie & Banque en ligne 24/7 !');
+  res.end('Bot Guilde RPG & Économie en ligne 24/7 !');
 });
 server.listen(PORT, () => {
-  console.log(`🌐 [HTTP] Mini serveur web actif sur le port ${PORT}`);
+  console.log(`🌐 [HTTP] Serveur web de garde actif sur le port ${PORT}`);
 });
 
 // --- 2. CLIENT DISCORD ---
@@ -22,34 +22,34 @@ const client = new Client({
   ]
 });
 
-// Base de données JSON locale sécurisée
-const dbFile = './bank_db.json';
-let bankData = {};
+// Base de données JSON des aventuriers
+const dbFile = './guild_db.json';
+let guildData = {};
 
 if (fs.existsSync(dbFile)) {
   try {
-    bankData = JSON.parse(fs.readFileSync(dbFile, 'utf8'));
+    guildData = JSON.parse(fs.readFileSync(dbFile, 'utf8'));
   } catch (e) {
-    bankData = {};
+    guildData = {};
   }
 } else {
   fs.writeFileSync(dbFile, JSON.stringify({}));
 }
 
 function saveDb() {
-  fs.writeFileSync(dbFile, JSON.stringify(bankData, null, 2));
+  fs.writeFileSync(dbFile, JSON.stringify(guildData, null, 2));
 }
 
-function getUserData(userId) {
-  if (!bankData[userId]) {
-    bankData[userId] = { balance: 100, bank: 500, lastDaily: 0, blacklisted: false };
+function getAdventurerData(userId) {
+  if (!guildData[userId]) {
+    guildData[userId] = { crystals: 150, vault: 600, lastBounty: 0, exiled: false };
   }
-  if (bankData[userId].blacklisted === undefined) bankData[userId].blacklisted = false;
-  return bankData[userId];
+  if (guildData[userId].exiled === undefined) guildData[userId].exiled = false;
+  return guildData[userId];
 }
 
-// --- 3. GÉNÉRATEUR D'IMAGE DE BANQUE (Canvas : Dégradé Bleu/Violet/Rouge + Avatar + Solde) ---
-async function generateBankImage(user, userData) {
+// --- 3. GÉNÉRATEUR D'IMAGE CARTE D'AVENTURIER (Canvas : Dégradé Bleu/Violet/Rouge + Avatar + Cristaux) ---
+async function generateAdventurerCard(user, data) {
   const canvas = createCanvas(700, 250);
   const ctx = canvas.getContext('2d');
 
@@ -62,11 +62,11 @@ async function generateBankImage(user, userData) {
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, 700, 250);
 
-  // Cadre sombre semi-transparent pour l'effet design
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+  // Cadre sombre semi-transparent
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
   ctx.fillRect(20, 20, 660, 210);
 
-  // Avatar du profil (Haut à gauche)
+  // Avatar de l'aventurier (Haut à gauche)
   try {
     const avatarURL = user.displayAvatarURL({ extension: 'png', size: 256 });
     const avatar = await loadImage(avatarURL);
@@ -78,8 +78,8 @@ async function generateBankImage(user, userData) {
     ctx.drawImage(avatar, 40, 60, 90, 90);
     ctx.restore();
 
-    // Bordure blanche autour de l'avatar
-    ctx.strokeStyle = '#FFFFFF';
+    // Bordure dorée/blanche autour de l'avatar
+    ctx.strokeStyle = '#FACC15';
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc(85, 105, 45, 0, Math.PI * 2, true);
@@ -88,201 +88,201 @@ async function generateBankImage(user, userData) {
     console.error('Erreur chargement avatar canvas:', err);
   }
 
-  // Pseudo / Nom en haut à gauche (à côté de l'avatar)
+  // Pseudo de l'aventurier
   ctx.fillStyle = '#FFFFFF';
   ctx.font = 'bold 24px sans-serif';
   ctx.fillText(user.username, 150, 85);
 
   ctx.font = '15px sans-serif';
   ctx.fillStyle = '#CBD5E1';
-  ctx.fillText('Compte Bancaire Officiel - Sécurisé', 150, 112);
+  ctx.fillText('Guilde des Aventuriers • Certifié', 150, 112);
 
-  // Solde en haut à droite (Portefeuille + Banque)
+  // Solde et Trésor en haut à droite
   ctx.textAlign = 'right';
   ctx.fillStyle = '#FACC15'; // Doré
   ctx.font = 'bold 28px sans-serif';
-  ctx.fillText(`${userData.balance} Pièces`, 650, 80);
+  ctx.fillText(`${data.crystals} Cristaux`, 650, 80);
 
   ctx.font = '14px sans-serif';
   ctx.fillStyle = '#94A3B8';
-  ctx.fillText(`Coffre Banque : ${userData.bank} pièces`, 650, 110);
+  ctx.fillText(`Coffre de Guilde : ${data.vault} pièces`, 650, 110);
 
-  return new AttachmentBuilder(canvas.toBuffer(), { name: 'bank-card.png' });
+  return new AttachmentBuilder(canvas.toBuffer(), { name: 'adventurer-card.png' });
 }
 
-// --- 4. LISTE DES COMMANDES SLASH ---
+// --- 4. NOUVELLES COMMANDES SLASH (Concepts RPG / Aventure) ---
 const commands = [
-  new SlashCommandBuilder().setName('daily').setDescription('Récupère ta récompense quotidienne de pièces !'),
-  new SlashCommandBuilder().setName('banque').setDescription('Affiche ta carte bancaire visuelle et stylée.'),
-  new SlashCommandBuilder().setName('deposit').setDescription('Dépose de l\'argent en banque.').addIntegerOption(o => o.name('montant').setDescription('Montant à déposer').setRequired(true)),
-  new SlashCommandBuilder().setName('withdraw').setDescription('Retire de l\'argent de la banque.').addIntegerOption(o => o.name('montant').setDescription('Montant à retirer').setRequired(true)),
-  new SlashCommandBuilder().setName('pay').setDescription('Envoie de l\'argent à un autre utilisateur.').addUserOption(o => o.name('destinataire').setDescription('À qui envoyer').setRequired(true)).addIntegerOption(o => o.name('montant').setDescription('Montant').setRequired(true)),
-  new SlashCommandBuilder().setName('ping').setDescription('Vérifie la latence du bot.'),
+  new SlashCommandBuilder().setName('bounty').setDescription('Récupère ta prime quotidienne de cristaux !'),
+  new SlashCommandBuilder().setName('fiches').setDescription('Affiche ta carte d\'aventurier personnalisée et tes richesses.'),
+  new SlashCommandBuilder().setName('store').setDescription('Dépose des cristaux dans le coffre sécurisé de la guilde.').addIntegerOption(o => o.name('montant').setDescription('Nombre de cristaux à stocker').setRequired(true)),
+  new SlashCommandBuilder().setName('retrieve').setDescription('Retire des cristaux du coffre de guilde vers ton inventaire.').addIntegerOption(o => o.name('montant').setDescription('Nombre de cristaux à retirer').setRequired(true)),
+  new SlashCommandBuilder().setName('trade').setDescription('Donne ou échange des cristaux avec un autre aventurier.').addUserOption(o => o.name('destinataire').setDescription('Aventurier cible').setRequired(true)).addIntegerOption(o => o.name('montant').setDescription('Montant').setRequired(true)),
+  new SlashCommandBuilder().setName('latence').setDescription('Vérifie la réactivité magique du bot.'),
   
-  // Commandes Administratives demandées
+  // Commandes Maître de Donjon (Admin) redéfinies
   new SlashCommandBuilder()
-    .setName('give')
-    .setDescription('[ADMIN] Donne des pièces à un utilisateur.')
-    .addUserOption(o => o.name('utilisateur').setDescription('Membre cible').setRequired(true))
-    .addIntegerOption(o => o.name('montant').setDescription('Montant à donner').setRequired(true)),
+    .setName('grant')
+    .setDescription('[MAÎTRE DE DONJON] Offre des cristaux à un aventurier.')
+    .addUserOption(o => o.name('aventurier').setDescription('Aventurier cible').setRequired(true))
+    .addIntegerOption(o => o.name('montant').setDescription('Montant de cristaux').setRequired(true)),
   new SlashCommandBuilder()
-    .setName('remove')
-    .setDescription('[ADMIN] Retire des pièces à un utilisateur.')
-    .addUserOption(o => o.name('utilisateur').setDescription('Membre cible').setRequired(true))
-    .addIntegerOption(o => o.name('montant').setDescription('Montant à retirer').setRequired(true)),
+    .setName('drain')
+    .setDescription('[MAÎTRE DE DONJON] Soustrait des cristaux à un aventurier.')
+    .addUserOption(o => o.name('aventurier').setDescription('Aventurier cible').setRequired(true))
+    .addIntegerOption(o => o.name('montant').setDescription('Montant à soustraire').setRequired(true)),
   new SlashCommandBuilder()
-    .setName('blacklist')
-    .setDescription('[ADMIN] Bloque un utilisateur du système.')
-    .addUserOption(o => o.name('utilisateur').setDescription('Membre à bloquer').setRequired(true)),
+    .setName('exile')
+    .setDescription('[MAÎTRE DE DONJON] Exile (bannit) un aventurier de la guilde.')
+    .addUserOption(o => o.name('aventurier').setDescription('Aventurier à exiler').setRequired(true)),
   new SlashCommandBuilder()
-    .setName('whitelist')
-    .setDescription('[ADMIN] Débloque un utilisateur de la blacklist.')
-    .addUserOption(o => o.name('utilisateur').setDescription('Membre à débloquer').setRequired(true))
+    .setName('pardon')
+    .setDescription('[MAÎTRE DE DONJON] Réintègre un aventurier exilé.')
+    .addUserOption(o => o.name('aventurier').setDescription('Aventurier à gracier').setRequired(true))
 ].map(cmd => cmd.toJSON());
 
 client.once('ready', async () => {
-  console.log(`🤖 Connecté en tant que ${client.user.tag} !`);
+  console.log(`🛡️ Bot d'Aventure connecté en tant que ${client.user.tag} !`);
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
   try {
-    console.log('🔄 Enregistrement des commandes slash...');
+    console.log('🔄 Enregistrement des quêtes et commandes slash...');
     await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-    console.log('✅ Commandes slash enregistrées avec succès !');
+    console.log('✅ Commandes de guilde enregistrées avec succès !');
   } catch (erreur) {
     console.error(erreur);
   }
 });
 
-// --- 5. GESTION DES INTERACTIONS ET COMMANDES ---
+// --- 5. GESTION DES INTERACTIONS ---
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   const { commandName, user, member } = interaction;
-  const userData = getUserData(user.id);
+  const data = getAdventurerData(user.id);
 
-  // Vérification de la blacklist globale
-  if (userData.blacklisted && commandName !== 'whitelist') {
-    return interaction.reply({ content: '⛔ Tu as été banni / blacklisté du système bancaire par un administrateur.', ephemeral: true });
+  // Vérification de l'exil (Blacklist)
+  if (data.exiled && commandName !== 'pardon') {
+    return interaction.reply({ content: '📜 Tu as été exilé de la guilde par un Maître de Donjon. Accès refusé.', ephemeral: true });
   }
 
   try {
-    if (commandName === 'ping') {
+    if (commandName === 'latence') {
       const embed = new EmbedBuilder()
         .setColor(0x0099FF)
-        .setTitle('🏓 Pong !')
-        .setDescription(`Latence du bot : **${client.ws.ping}ms**`)
+        .setTitle('🔮 Connexion Magique')
+        .setDescription(`Latence du royaume : **${client.ws.ping}ms**`)
         .setTimestamp();
       await interaction.reply({ embeds: [embed] });
     } 
-    else if (commandName === 'daily') {
-      const maintenant = Date.now();
+    else if (commandName === 'bounty') {
+      const now = Date.now();
       const cooldown = 24 * 60 * 60 * 1000;
-      if (maintenant - userData.lastDaily < cooldown) {
-        const restant = cooldown - (maintenant - userData.lastDaily);
+      if (now - data.lastBounty < cooldown) {
+        const restant = cooldown - (now - data.lastBounty);
         const heures = Math.floor(restant / (1000 * 60 * 60));
         const embed = new EmbedBuilder()
           .setColor(0xFF5733)
-          .setTitle('⏳ Patientez !')
-          .setDescription(`Vous avez déjà récupéré votre quotidien. Revenez dans **${heures} heures**.`);
+          .setTitle('⏳ Prime déjà récupérée !')
+          .setDescription(`Reviens dans **${heures} heures** pour réclamer ta prochaine prime d'aventurier.`);
         return interaction.reply({ embeds: [embed], ephemeral: true });
       }
-      userData.balance += 500;
-      userData.lastDaily = maintenant;
+      data.crystals += 300;
+      data.lastBounty = now;
       saveDb();
       const embed = new EmbedBuilder()
         .setColor(0x00FF00)
-        .setTitle('💰 Récompense quotidienne')
-        .setDescription(`Félicitations ${user}, vous avez reçu **500 pièces** !`)
+        .setTitle('⚔️ Prime Quotidienne')
+        .setDescription(`Bien joué ${user}, tu as perçu ta prime de guilde de **300 cristaux** !`)
         .setTimestamp();
       await interaction.reply({ embeds: [embed] });
     } 
-    else if (commandName === 'banque') {
+    else if (commandName === 'fiches') {
       await interaction.deferReply();
-      const attachment = await generateBankImage(user, userData);
+      const attachment = await generateAdventurerCard(user, data);
       const embed = new EmbedBuilder()
-        .setColor(0x3B82F6)
-        .setTitle('🏦 COMPTE BANCAIRE OFFICIEL')
-        .setImage('attachment://bank-card.png')
-        .setFooter({ text: 'Système bancaire sécurisé • Dégradé Bleu, Violet & Rouge' })
+        .setColor(0x7C3AED)
+        .setTitle('📜 FICHE D\'AVENTURIER OFFICIELLE')
+        .setImage('attachment://adventurer-card.png')
+        .setFooter({ text: 'Ordre des Guildes • Thème Dégradé Magique' })
         .setTimestamp();
       
       await interaction.editReply({ embeds: [embed], files: [attachment] });
     }
-    else if (commandName === 'deposit') {
-      const montant = interaction.options.getInteger('montant');
-      if (montant <= 0 || userData.balance < montant) {
-        return interaction.reply({ content: '❌ Montant invalide ou solde insuffisant dans ton portefeuille.', ephemeral: true });
+    else if (commandName === 'store') {
+      const amount = interaction.options.getInteger('montant');
+      if (amount <= 0 || data.crystals < amount) {
+        return interaction.reply({ content: '❌ Quantité invalide ou cristaux insuffisants dans ta bourse.', ephemeral: true });
       }
-      userData.balance -= montant;
-      userData.bank += montant;
+      data.crystals -= amount;
+      data.vault += amount;
       saveDb();
-      await interaction.reply({ content: `✅ Tu as déposé **${montant} pièces** dans ton coffre bancaire.` });
+      await interaction.reply({ content: `🏰 Tu as sécurisé **${amount} cristaux** dans le coffre de la guilde.` });
     }
-    else if (commandName === 'withdraw') {
-      const montant = interaction.options.getInteger('montant');
-      if (montant <= 0 || userData.bank < montant) {
-        return interaction.reply({ content: '❌ Montant invalide ou solde insuffisant en banque.', ephemeral: true });
+    else if (commandName === 'retrieve') {
+      const amount = interaction.options.getInteger('montant');
+      if (amount <= 0 || data.vault < amount) {
+        return interaction.reply({ content: '❌ Montant invalide ou coffre de guilde insuffisant.', ephemeral: true });
       }
-      userData.bank -= montant;
-      userData.balance += montant;
+      data.vault -= amount;
+      data.crystals += amount;
       saveDb();
-      await interaction.reply({ content: `✅ Tu as retiré **${montant} pièces** de ta banque vers ton portefeuille.` });
+      await interaction.reply({ content: `🗝️ Tu as retiré **${amount} cristaux** du coffre pour ta bourse personnelle.` });
     }
-    else if (commandName === 'pay') {
-      const destinataireUser = interaction.options.getUser('destinataire');
-      const montant = interaction.options.getInteger('montant');
+    else if (commandName === 'trade') {
+      const targetUser = interaction.options.getUser('destinataire');
+      const amount = interaction.options.getInteger('montant');
 
-      if (destinataireUser.bot || destinataireUser.id === user.id) {
-        return interaction.reply({ content: '❌ Tu ne peux pas envoyer de l\'argent à un bot ou à toi-même.', ephemeral: true });
+      if (targetUser.bot || targetUser.id === user.id) {
+        return interaction.reply({ content: '❌ Impossible de troquer des cristaux avec un automate ou toi-même.', ephemeral: true });
       }
-      if (montant <= 0 || userData.balance < montant) {
-        return interaction.reply({ content: '❌ Solde insuffisant dans ton portefeuille.', ephemeral: true });
+      if (amount <= 0 || data.crystals < amount) {
+        return interaction.reply({ content: '❌ Tu ne possèdes pas assez de cristaux dans ta bourse pour cet échange.', ephemeral: true });
       }
 
-      const destinataireData = getUserData(destinataireUser.id);
-      userData.balance -= montant;
-      destinataireData.balance += montant;
+      const targetData = getAdventurerData(targetUser.id);
+      data.crystals -= amount;
+      targetData.crystals += amount;
       saveDb();
 
-      await interaction.reply({ content: `💸 ${user} a envoyé avec succès **${montant} pièces** à ${destinataireUser} !` });
+      await interaction.reply({ content: `🤝 ${user} a offert **${amount} cristaux** à l'aventurier ${targetUser} !` });
     }
-    // --- COMMANDES ADMINISTRATIVES (Give, Remove, Blacklist, Whitelist) ---
-    else if (['give', 'remove', 'blacklist', 'whitelist'].includes(commandName)) {
+    // --- COMMANDES MAÎTRE DE DONJON (Admin) ---
+    else if (['grant', 'drain', 'exile', 'pardon'].includes(commandName)) {
       if (!member.permissions.has('Administrator')) {
-        return interaction.reply({ content: '⛔ Tu dois posséder la permission **Administrateur** pour exécuter cette commande.', ephemeral: true });
+        return interaction.reply({ content: '⛔ Seul un **Maître de Donjon** (Administrateur) peut invoquer ces décrets.', ephemeral: true });
       }
 
-      const cible = interaction.options.getUser('utilisateur');
-      const cibleData = getUserData(cible.id);
+      const target = interaction.options.getUser('aventurier');
+      const targetData = getAdventurerData(target.id);
 
-      if (commandName === 'give') {
-        const montant = interaction.options.getInteger('montant');
-        cibleData.balance += montant;
+      if (commandName === 'grant') {
+        const amount = interaction.options.getInteger('montant');
+        targetData.crystals += amount;
         saveDb();
-        await interaction.reply({ content: `🎁 [ADMIN] Ajout réussi de **${montant} pièces** au compte de ${cible.username}.` });
+        await interaction.reply({ content: `🎁 [MAÎTRE DE DONJON] Attribution magique de **${amount} cristaux** à ${target.username}.` });
       } 
-      else if (commandName === 'remove') {
-        const montant = interaction.options.getInteger('montant');
-        cibleData.balance = Math.max(0, cibleData.balance - montant);
+      else if (commandName === 'drain') {
+        const amount = interaction.options.getInteger('montant');
+        targetData.crystals = Math.max(0, targetData.crystals - amount);
         saveDb();
-        await interaction.reply({ content: `⚠️ [ADMIN] Retrait de **${montant} pièces** sur le compte de ${cible.username}.` });
+        await interaction.reply({ content: `⚡ [MAÎTRE DE DONJON] Prélèvement de **${amount} cristaux** sur ${target.username}.` });
       } 
-      else if (commandName === 'blacklist') {
-        cibleData.blacklisted = true;
+      else if (commandName === 'exile') {
+        targetData.exiled = true;
         saveDb();
-        await interaction.reply({ content: `⛔ [ADMIN] L'utilisateur ${cible.username} a été **blacklisté** (bloqué) du système bancaire.` });
+        await interaction.reply({ content: `📜 [MAÎTRE DE DONJON] L'aventurier ${target.username} a été **exilé** de la guilde.` });
       } 
-      else if (commandName === 'whitelist') {
-        cibleData.blacklisted = false;
+      else if (commandName === 'pardon') {
+        targetData.exiled = false;
         saveDb();
-        await interaction.reply({ content: `✅ [ADMIN] L'utilisateur ${cible.username} a été **whiteliste/débloqué** avec succès.` });
+        await interaction.reply({ content: `✨ [MAÎTRE DE DONJON] L'aventurier ${target.username} a reçu son **pardon** et réintègre la guilde.` });
       }
     }
   } catch (err) {
-    console.error('Erreur execution commande:', err);
+    console.error('Erreur d\'exécution :', err);
     const errorEmbed = new EmbedBuilder()
       .setColor(0xFF0000)
-      .setTitle('⚠️ Oups ! Une erreur est survenue')
-      .setDescription('Le script a géré l\'exception pour éviter tout crash de l\'application.')
+      .setTitle('⚠️ Anomalie mystique détectée')
+      .setDescription('Une perturbation a été interceptée et isolée pour protéger le royaume.')
       .setTimestamp();
     
     if (interaction.deferred || interaction.replied) {
@@ -293,6 +293,6 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-// Connexion sécurisée au bot
+// Connexion du bot avec le token sécurisé
 client.login(process.env.DISCORD_TOKEN);
         
