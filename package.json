@@ -1,0 +1,16 @@
+{
+  "name": "starlight-abyss-bot",
+  "version": "1.0.0",
+  "description": "Bot Discord Starlight Abyss - banque et economie",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.80",
+    "discord.js": "^14.19.3"
+  }
+}
